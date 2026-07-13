@@ -7,6 +7,64 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ---------- Intro / splash screen ---------- */
+.intro-screen{
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity .8s ease, transform .8s cubic-bezier(.4,0,.2,1);
+}
+.intro-screen.intro-hide{
+  opacity: 0;
+  transform: translateY(-40px);
+  pointer-events: none;
+}
+.intro-text{
+  display: flex;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: clamp(1.8rem, 7vw, 4.6rem);
+  letter-spacing: 0.3em;
+  color: var(--text);
+  position: relative;
+}
+.intro-text::after{
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  width: 64px;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--accent);
+  animation: introBarIn .5s ease forwards;
+  animation-delay: 1.05s;
+}
+.intro-text span{
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(28px);
+  animation: introLetterIn .55s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes introLetterIn{
+  to{ opacity: 1; transform: translateY(0); }
+}
+@keyframes introBarIn{
+  to{ transform: translateX(-50%) scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .intro-text span{ animation: none; opacity: 1; transform: none; }
+  .intro-text::after{ animation: none; transform: translateX(-50%) scaleX(1); }
+  .intro-screen{ transition: opacity .3s ease; }
+}
+</style>
+<style>
 :root{
   --bg: #06070f;
   --bg-2: #0b0e1c;
@@ -146,6 +204,23 @@ body.light .ts-knob{ left: 2px; }
   mix-blend-mode: overlay;
   pointer-events:none;
 }
+/* ---------- Cursor-following fluid trail (bluish-purple) ---------- */
+.cursor-line{
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 40;
+  mix-blend-mode: screen;
+}
+body.light .cursor-line{ mix-blend-mode: multiply; }
+@media (max-width: 780px), (hover: none){
+  .cursor-line{ display: none; }
+}
+@media (prefers-reduced-motion: reduce){
+  .cursor-line{ display: none; }
+}
 .orbit{
   position: absolute;
   border: 1px solid rgba(124,155,255,0.14);
@@ -182,6 +257,18 @@ body.light .ts-knob{ left: 2px; }
 @media (prefers-reduced-motion: reduce){
   .orbit, .drift, .float{ animation: none !important; }
 }
+
+/* ---------- Section float-in animation (replays every time a section scrolls into view) ---------- */
+@keyframes sectionFloatIn{
+  0%{ opacity:0; transform: translateY(90px); }
+  100%{ opacity:1; transform: translateY(0); }
+}
+.section-float-in{
+  animation: sectionFloatIn 2.2s cubic-bezier(.22,.85,.3,1);
+}
+@media (prefers-reduced-motion: reduce){
+  .section-float-in{ animation: none !important; }
+}
  
 /* ---------- Layout ---------- */
 .wrap{ position:relative; z-index:1; }
@@ -202,17 +289,45 @@ nav{
   padding: 22px 4vw;
   backdrop-filter: blur(10px);
   background: linear-gradient(to bottom, rgba(6,7,15,0.85), transparent);
+  transform: translateX(0);
+  border-radius: 0;
 }
 nav .logo{ font-weight:600; font-size:1.2rem; }
 nav .logo span{ color: var(--accent); }
-nav ul{ list-style:none; display:flex; align-items:center; gap: 36px; }
+nav ul{ list-style:none; display:flex; align-items:center; gap: 6px; position:relative; padding: 6px; border-radius: 100px; }
+nav ul li:not(.mode-item){ position:relative; z-index: 2; }
 nav ul a{
   font-size: 1.05rem; font-weight:500; color: var(--muted);
-  transition: color .2s;
+  transition: color .35s ease;
   display:inline-block;
+  padding: 9px 16px;
+  border-radius: 100px;
+  position: relative;
 }
 nav ul a:hover{ color: var(--text); }
-@media (max-width: 780px){ nav ul li:not(.mode-item){ display:none; } }
+nav ul a.active{ color: var(--bg); font-weight:600; }
+body.light nav ul a.active{ color: #fff; }
+
+/* ---------- Gooey nav pill ---------- */
+.nav-pill{
+  position:absolute;
+  top:6px; left:6px;
+  height: 38px;
+  width: 0;
+  border-radius: 100px;
+  background: var(--accent);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    left .55s cubic-bezier(.34,1.56,.64,1),
+    width .55s cubic-bezier(.34,1.56,.64,1),
+    transform .45s cubic-bezier(.34,1.56,.64,1),
+    opacity .25s ease;
+  filter: url(#navGoo);
+}
+.nav-pill.nav-pill-show{ opacity: 1; }
+@media (max-width: 780px){ nav ul li:not(.mode-item){ display:none; } .nav-pill{ display:none; } }
  
 /* ---------- Hero ---------- */
 .hero{
@@ -369,6 +484,20 @@ h1.name .accent{ color: var(--accent); }
   margin-top: 16px;
   background: var(--accent);
 }
+/* ---------- Section heading typing animation ---------- */
+.head h2.typing-heading{ min-height: 1em; }
+.head h2.typing-heading .type-cursor{
+  display:inline-block;
+  width: 3px;
+  height: 0.85em;
+  margin-left: 2px;
+  background: var(--accent);
+  opacity: 0;
+  animation: typeCaretBlink 0.8s steps(1) infinite;
+  vertical-align: -0.08em;
+}
+.head h2.typing-heading.is-typing .type-cursor{ opacity: 1; }
+@keyframes typeCaretBlink{ 0%,49%{ opacity:1; } 50%,100%{ opacity:0; } }
  
 /* ---------- About / floating panel ---------- */
 .about-grid{ display:grid; grid-template-columns: 1.1fr 0.9fr; gap: 60px; }
@@ -393,12 +522,12 @@ h1.name .accent{ color: var(--accent); }
 .stat .l{ font-family:'Space Grotesk'; font-size: 0.72rem; color: var(--muted); margin-top:4px; }
  
 /* ---------- Skills ---------- */
-.skills-groups{ display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 46px 40px; position: relative; }
+.skills-groups{ display:grid; grid-template-columns: repeat(auto-fit, minmax(360px,1fr)); gap: 46px 40px; position: relative; }
 .skill-card{
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 30px 32px;
+  padding: 34px 36px;
   position: relative;
   transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .3s, box-shadow .35s;
 }
@@ -453,6 +582,20 @@ body.admin-mode .skill-card.add-skill-card{ display:flex; }
 .skill-card:active{ cursor: grabbing; }
 .skill-card.dragging{ opacity: 0.4; }
 .skill-card.drag-over{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,155,255,0.35); }
+.exp-row, .t-item{ position:relative; }
+.exp-row.dragging, .t-item.dragging{ opacity: 0.4; }
+.exp-row.drag-over, .t-item.drag-over{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,155,255,0.35); }
+.drag-handle{
+  display:none; align-items:center; justify-content:center;
+  position:absolute; top:10px; right:10px; z-index:3;
+  width:26px; height:26px; border-radius:7px;
+  background: var(--surface-2); border:1px solid var(--line); color: var(--muted);
+  cursor: grab; font-size:0.85rem; line-height:1; user-select:none; touch-action:none;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.drag-handle:hover{ color: var(--accent); border-color: var(--accent); }
+.drag-handle:active{ cursor: grabbing; }
+body.admin-mode .drag-handle{ display:flex; }
 .tag-cloud{ display:flex; flex-wrap:wrap; gap:8px; }
 .tag{
   font-family:'Space Grotesk'; font-size:0.76rem; color: var(--muted);
@@ -668,14 +811,37 @@ footer a:hover{ color: var(--accent-2); transform: scale(1.1); }
   transition: width .1s linear;
   box-shadow: 0 0 8px rgba(124,155,255,0.6);
 }
-nav{ transition: padding .3s ease, background .3s ease, box-shadow .3s ease; }
-nav.scrolled{
-  padding-top: 12px; padding-bottom: 12px;
-  background: rgba(6,7,15,0.7);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 8px 24px -16px rgba(0,0,0,0.6);
+nav{
+  transition: top .8s cubic-bezier(.16,1,.3,1), left .8s cubic-bezier(.16,1,.3,1),
+              right .8s cubic-bezier(.16,1,.3,1), width .8s cubic-bezier(.16,1,.3,1),
+              max-width .8s cubic-bezier(.16,1,.3,1),
+              padding .8s cubic-bezier(.16,1,.3,1), background .6s ease, box-shadow .6s ease,
+              border-radius .8s cubic-bezier(.16,1,.3,1), gap .8s cubic-bezier(.16,1,.3,1);
 }
-body.light nav.scrolled{ background: rgba(246,246,242,0.75); }
+nav.scrolled{
+  top: 14px; left: 50%; right: auto;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 92vw;
+  padding: 10px 14px;
+  border-radius: 100px;
+  gap: 8px;
+  background: rgba(13,15,26,0.82);
+  backdrop-filter: blur(10px) saturate(110%);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 10px 26px -16px rgba(0,0,0,0.5);
+}
+nav.scrolled .logo{ padding-left: 14px; margin-right: 4px; font-size: 1.05rem; }
+nav.scrolled ul{ gap: 22px; padding: 0 10px; }
+nav.scrolled ul a{ font-size: 0.92rem; }
+@media (max-width: 780px){
+  nav.scrolled ul li:not(.mode-item){ display: none; }
+}
+body.light nav.scrolled{
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.05);
+}
  
 .hero .eyebrow, .hero .name, .hero .role-tag, .hero .hero-sub, .hero .hero-meta, .hero .cta-row{
   will-change: transform, opacity;
@@ -690,6 +856,11 @@ body.light nav.scrolled{ background: rgba(246,246,242,0.75); }
 </head>
 <body>
  
+<div id="introScreen" class="intro-screen">
+  <div class="intro-text" id="introText"></div>
+</div>
+
+<canvas class="cursor-line" id="cursorTrail"></canvas>
 <div class="scroll-progress" id="scrollProgress"></div>
  
 <div class="field">
@@ -846,9 +1017,20 @@ body.admin-mode .tag-add{ display:inline-block; }
 </div>
 <!-- =============== END ADMIN LOGIN + EDIT SYSTEM =============== -->
  
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="navGoo">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+      <feColorMatrix in="blur" mode="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -11" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+  </defs>
+</svg>
 <nav>
   <div class="logo">KC<span>.</span></div>
-  <ul>
+  <ul id="navLinksList">
+    <span class="nav-pill" id="navPill"></span>
     <li><a href="#about">About</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#projects">Projects</a></li>
@@ -1032,6 +1214,7 @@ body.admin-mode .tag-add{ display:inline-block; }
     <div class="head"><h2>Experience</h2></div>
     <div class="exp-list" id="experienceContainer">
       <div class="exp-row reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="when">May 2026 – Jun 2026</div>
         <div>
           <h4>Web Developer Intern — InAmigos Foundation</h4>
@@ -1041,11 +1224,13 @@ body.admin-mode .tag-add{ display:inline-block; }
         </div>
       </div>
       <div class="exp-row reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="when">Nov 2024 – Feb 2025</div>
         <div>
           <h4>Editor — Electric Vehicle Club, VIT Bhopal University</h4>
           <p>Managed and edited digital content for club communication, keeping messaging consistent across channels.</p>
-          <a class="upload-link" href="#" title="Upload supporting certificate">🔗 Upload certificate</a>
+          <a class="upload-link" data-cert-id="cert-exp-ev-club" href="#" title="Upload supporting certificate">🔗 Upload certificate</a>
+          <button class="cert-file-del" data-remove-cert-file contenteditable="false" title="Remove uploaded file">✕</button>
           <button class="admin-del" contenteditable="false" data-remove-card>Delete this entry</button>
         </div>
       </div>
@@ -1057,6 +1242,7 @@ body.admin-mode .tag-add{ display:inline-block; }
     <div class="head"><h2>Certifications</h2></div>
     <div class="timeline" id="certsTimeline">
       <div class="t-item reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">FEB 2026</div>
         <h4>Google IT Support — Google</h4>
         <p>Training in computer networking, operating systems, system administration, IT security, and troubleshooting.</p>
@@ -1065,6 +1251,7 @@ body.admin-mode .tag-add{ display:inline-block; }
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this certification</button>
       </div>
       <div class="t-item reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">MAR 2025</div>
         <h4>The Bits and Bytes of Computer Networking — Coursera</h4>
         <p>Foundational networking concepts including TCP/IP, DNS, routing, and network troubleshooting.</p>
@@ -1073,6 +1260,7 @@ body.admin-mode .tag-add{ display:inline-block; }
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this certification</button>
       </div>
       <div class="t-item reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">NOV 2024</div>
         <h4>Postman API Fundamentals — Postman</h4>
         <p>API testing, request methods (GET, POST, PUT, DELETE), and validation of REST APIs.</p>
@@ -1081,6 +1269,7 @@ body.admin-mode .tag-add{ display:inline-block; }
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this certification</button>
       </div>
       <div class="t-item reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">AUG 2024</div>
         <h4>Flipkart Grid 6.0 — Flipkart</h4>
         <p>National-level tech challenge focused on problem solving, coding, and innovative solution development.</p>
@@ -1089,6 +1278,7 @@ body.admin-mode .tag-add{ display:inline-block; }
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this certification</button>
       </div>
       <div class="t-item reveal">
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">NOV 2023</div>
         <h4>Data Science with Python — Simplilearn</h4>
         <p>Data analysis, visualization, and basic machine learning techniques using Python libraries.</p>
@@ -1141,10 +1331,74 @@ body.admin-mode .tag-add{ display:inline-block; }
       <button class="admin-add" contenteditable="false" id="editLinkedinBtn" style="width:auto;margin:0;padding:4px 10px;font-size:0.68rem;">✏️ Edit</button>
     </span>
   </footer>
- 
 </div>
  
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
+// ================= SUPABASE DATABASE CONNECTION =================
+// Replace these two values with your own Supabase project's URL and anon key
+// (Project Settings -> API in your Supabase dashboard). These are safe to
+// expose publicly — access is controlled by Row Level Security policies.
+const SUPABASE_URL = 'https://yznfuvusahoexyxrsnjr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bmZ1dnVzYWhvZXh5eHJzbmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1ODg4NTcsImV4cCI6MjA5OTE2NDg1N30.YDUpEKmmvQ3JzLbgg2l0UgQTblaeV1BHd1iniozvleo';
+
+const sbClient = (SUPABASE_URL.startsWith('http'))
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+// dbStorage mimics the localStorage API (getItem/setItem/removeItem) but
+// reads/writes to a real Postgres table (`portfolio_kv`) on Supabase, so
+// admin edits are visible to every visitor, on every device, permanently.
+// A local cache is loaded once on page load (see __dbReady below) so that
+// getItem() calls elsewhere in this file can stay synchronous, exactly like
+// the old localStorage calls did.
+const dbStorage = {
+  _cache: {},
+  _table: 'portfolio_kv',
+  async init(){
+    if(!sbClient){
+      console.warn('Supabase is not configured yet — falling back to localStorage. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+      return;
+    }
+    try{
+      const { data, error } = await sbClient.from(this._table).select('key,value');
+      if(error){ console.warn('Could not load data from Supabase', error); return; }
+      (data || []).forEach(row => { this._cache[row.key] = row.value; });
+    }catch(e){ console.warn('Supabase init failed', e); }
+  },
+  getItem(key){
+    if(!sbClient) return localStorage.getItem(key);
+    return this._cache.hasOwnProperty(key) ? this._cache[key] : null;
+  },
+  setItem(key, value){
+    if(!sbClient){ localStorage.setItem(key, value); return; }
+    this._cache[key] = value;
+    sbClient.from(this._table)
+      .upsert({ key, value, updated_at: new Date().toISOString() })
+      .then(({ error }) => { if(error) console.warn('Save to Supabase failed for key', key, error); });
+  },
+  removeItem(key){
+    if(!sbClient){ localStorage.removeItem(key); return; }
+    delete this._cache[key];
+    sbClient.from(this._table).delete().eq('key', key)
+      .then(({ error }) => { if(error) console.warn('Delete from Supabase failed for key', key, error); });
+  }
+};
+
+// Both <script> blocks on this page await this same promise before touching
+// dbStorage, so the cache is guaranteed to be loaded first no matter which
+// script block runs first.
+window.__dbReady = dbStorage.init();
+</script>
+
+<script>
+// This entire block waits for the Supabase data to finish loading (see
+// window.__dbReady set up in the previous <script>) before running anything
+// that reads saved content — otherwise dbStorage.getItem() calls below could
+// run before the database cache is populated.
+(async function(){
+await window.__dbReady;
+
 // ================= SHARED REPAIR / MIGRATION LOGIC =================
 // Fixes legacy placeholder slots and heals any accidentally-corrupted
 // add/remove controls (e.g. a "+" button that got typed into by mistake).
@@ -1213,16 +1467,51 @@ window.__repairPortfolioControls = function(contentRoot){
   const STORAGE_KEY = 'kc_portfolio_content_v1';
   const contentRoot = document.getElementById('contentRoot');
   try{
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = dbStorage.getItem(STORAGE_KEY);
     if(saved){ contentRoot.innerHTML = saved; }
   }catch(e){ console.warn('Could not load saved portfolio data', e); }
  
   const changed = window.__repairPortfolioControls(contentRoot);
   if(changed){
-    try{ localStorage.setItem(STORAGE_KEY, contentRoot.innerHTML); }catch(e){}
+    try{ dbStorage.setItem(STORAGE_KEY, contentRoot.innerHTML); }catch(e){}
   }
 })();
  
+// ================= INTRO / SPLASH SCREEN =================
+(function(){
+  const introScreen = document.getElementById('introScreen');
+  const introText = document.getElementById('introText');
+  if(!introScreen || !introText) return;
+
+  const WORD = 'PORTFOLIO';
+  const LETTER_DELAY = 0.05; // seconds between each letter's entrance
+  const LETTER_DURATION = 0.55; // matches the introLetterIn CSS animation duration
+  const HOLD_AFTER_BAR = 500; // ms to hold once fully revealed before hiding
+
+  // Prevent scrolling/interaction with the page while the intro plays.
+  document.documentElement.style.overflow = 'hidden';
+
+  WORD.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.style.animationDelay = (i * LETTER_DELAY) + 's';
+    introText.appendChild(span);
+  });
+
+  const totalLetterTime = (WORD.length - 1) * LETTER_DELAY + LETTER_DURATION; // seconds
+  const barDelay = 1050; // ms, matches .intro-text::after animation-delay in CSS
+  const barDuration = 500; // ms, matches introBarIn duration
+
+  const hideAfter = Math.max(totalLetterTime * 1000, barDelay + barDuration) + HOLD_AFTER_BAR;
+
+  setTimeout(() => {
+    introScreen.classList.add('intro-hide');
+    document.documentElement.style.overflow = '';
+    setTimeout(() => { introScreen.remove(); }, 850); // matches CSS transition duration
+  }, hideAfter);
+})();
+// ================= END INTRO / SPLASH SCREEN =================
+
 // Ambient drifting particles
 const field = document.querySelector('.field');
 for(let i=0;i<24;i++){
@@ -1299,7 +1588,7 @@ setMode(saved);
 const ROLES_KEY = 'kc_portfolio_roles_v1';
 function loadRoles(){
   try{
-    const saved = localStorage.getItem(ROLES_KEY);
+    const saved = dbStorage.getItem(ROLES_KEY);
     if(saved){
       const arr = JSON.parse(saved);
       if(Array.isArray(arr) && arr.length) return arr;
@@ -1353,7 +1642,7 @@ if(editRolesBtn){
       const newRoles = input.value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
       if(newRoles.length){
         roles = newRoles;
-        try{ localStorage.setItem(ROLES_KEY, JSON.stringify(roles)); }catch(e){}
+        try{ dbStorage.setItem(ROLES_KEY, JSON.stringify(roles)); }catch(e){}
         clearTimeout(roleTimer);
         roleIndex = 0; charIndex = 0; deleting = false;
         roleEl.textContent = '';
@@ -1371,19 +1660,219 @@ if(editRolesBtn){
 }
  
  
-// Drag & drop reordering for skill cards
-const skillsGroups = document.querySelector('.skills-groups');
-if(skillsGroups){
+// ================= CURSOR-FOLLOWING FLUID TRAIL (bluish-purple) =================
+(function(){
+  const canvas = document.getElementById('cursorTrail');
+  if(!canvas) return;
+  if(window.matchMedia('(hover: none)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const ctx = canvas.getContext('2d');
+  let dpr = window.devicePixelRatio || 1;
+
+  function resize(){
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // A chain of points, each easing toward the one ahead of it — this is
+  // what gives the trail its soft, fluid, liquid-like follow-through
+  // instead of a single rigid line.
+  const POINT_COUNT = 14;
+  const points = Array.from({ length: POINT_COUNT }, () => ({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  }));
+
+  let mouseX = points[0].x, mouseY = points[0].y;
+  let hasMoved = false;
+  let idleTimer = null;
+  const IDLE_DELAY = 150; // ms of no movement before the trail fades away
+  let visible = 0; // 0..1 fade factor
+
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    hasMoved = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { hasMoved = false; }, IDLE_DELAY);
+  }, { passive: true });
+
+  document.addEventListener('mouseleave', () => {
+    clearTimeout(idleTimer);
+    hasMoved = false;
+  });
+
+  function draw(){
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // Fade the whole trail in/out smoothly based on whether the cursor is moving.
+    visible += ((hasMoved ? 1 : 0) - visible) * 0.15;
+
+    // Each point eases toward the one before it in the chain, and the head
+    // of the chain eases toward the real cursor position — this staggered
+    // easing is what produces the fluid, elastic trailing motion.
+    points[0].x += (mouseX - points[0].x) * 0.35;
+    points[0].y += (mouseY - points[0].y) * 0.35;
+    for(let i = 1; i < points.length; i++){
+      points[i].x += (points[i - 1].x - points[i].x) * 0.32;
+      points[i].y += (points[i - 1].y - points[i].y) * 0.32;
+    }
+
+    if(visible > 0.01){
+      const isLight = document.body.classList.contains('light');
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for(let i = 0; i < points.length - 1; i++){
+        const t = 1 - i / (points.length - 1); // 1 at head, 0 at tail
+        ctx.beginPath();
+        ctx.moveTo(points[i].x, points[i].y);
+        ctx.lineTo(points[i + 1].x, points[i + 1].y);
+        ctx.lineWidth = 6 * t + 1;
+        if(isLight){
+          // Darker, more saturated purple with higher opacity — needed
+          // because multiply-blend mode requires a strong pigment to
+          // read clearly against a light/white background.
+          const r = Math.round(90 - 20 * (1 - t));
+          const g = Math.round(60 + 20 * (1 - t));
+          const b = Math.round(210 - 20 * (1 - t));
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.75 * t * visible})`;
+          ctx.shadowColor = 'rgba(90,60,210,0.5)';
+        } else {
+          ctx.strokeStyle = `rgba(${Math.round(147 - 23 * (1 - t))}, ${Math.round(112 + 43 * (1 - t))}, 255, ${0.5 * t * visible})`;
+          ctx.shadowColor = 'rgba(147,112,255,0.6)';
+        }
+        ctx.shadowBlur = 8 * t;
+        ctx.stroke();
+      }
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+// ================= END CURSOR-FOLLOWING GLOW =================
+
+// ================= SECTION FLOAT-IN ANIMATION (re-plays every visit) =================
+// Every time a section scrolls into view — whether the first time or the
+// tenth time — it gently floats up into place. Unlike the one-shot ".reveal"
+// observer above, this one never unobserves, so it keeps re-triggering.
+(function(){
+  const floatSections = document.querySelectorAll('section#about, section#skills, section#projects, section#experience, section#certs, section#achievements, section.contact');
+  if(!floatSections.length) return;
+
+  const floatObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const el = entry.target;
+      if(entry.isIntersecting){
+        // Remove and force a reflow so the animation restarts even if the
+        // class was never removed (re-entering the same section quickly).
+        el.classList.remove('section-float-in');
+        void el.offsetWidth;
+        el.classList.add('section-float-in');
+      }
+    });
+  }, { threshold: 0.2 });
+
+  floatSections.forEach(sec => floatObserver.observe(sec));
+})();
+// ================= END SECTION FLOAT-IN ANIMATION =================
+
+// ================= SECTION HEADING TYPING ANIMATION =================
+// Combines the Intersection Observer API (detects when a section heading
+// scrolls into view) with a simple JS text-writing function + CSS blinking
+// caret. Re-types every time the heading re-enters the viewport.
+(function(){
+  const headings = document.querySelectorAll('.head h2');
+  if(!headings.length) return;
+
+  headings.forEach(h2 => {
+    h2.dataset.fullText = h2.textContent;
+    h2.classList.add('typing-heading');
+  });
+
+  function typeText(el, text, speed){
+    speed = speed || 150;
+    const token = Symbol();
+    el._typeToken = token;
+    el.classList.add('is-typing');
+    const cursor = document.createElement('span');
+    cursor.className = 'type-cursor';
+    el.textContent = '';
+    el.appendChild(cursor);
+    let i = 0;
+    function step(){
+      if(el._typeToken !== token) return; // a newer typing pass cancelled this one
+      if(i <= text.length){
+        el.textContent = text.slice(0, i);
+        el.appendChild(cursor);
+        i++;
+        setTimeout(step, speed);
+      } else {
+        cursor.remove();
+        el.classList.remove('is-typing');
+      }
+    }
+    step();
+  }
+
+  const headingObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const el = entry.target;
+      if(entry.isIntersecting){
+        typeText(el, el.dataset.fullText);
+      }
+    });
+  }, { threshold: 0.4 });
+
+  headings.forEach(h2 => headingObserver.observe(h2));
+})();
+// ================= END SECTION HEADING TYPING ANIMATION =================
+
+// Drag & drop reordering (generic) — used by Skills, Experience, and Certifications
+// Each container keeps its own "currently dragged" reference so dragging in
+// one section never interferes with another.
+function setupDragReorder(container, itemSelector, excludeSelector){
+  if(!container) return null;
   let draggedEl = null;
- 
-  skillsGroups.querySelectorAll('.skill-card:not(.add-skill-card)').forEach(card => {
+
+  const getItems = () => Array.from(container.querySelectorAll(itemSelector))
+    .filter(el => !excludeSelector || !el.matches(excludeSelector));
+
+  function attach(card){
+    if(card.dataset.dragReorderBound) return;
+    card.dataset.dragReorderBound = 'true';
+
+    const handle = card.querySelector(':scope > .drag-handle');
+    if(handle){
+      // Only allow drag to start from the handle. This avoids clicks on
+      // editable text, links, or buttons inside the card being swallowed
+      // by (or accidentally triggering) the native HTML5 drag gesture.
+      card.removeAttribute('draggable');
+      handle.addEventListener('mousedown', () => card.setAttribute('draggable', 'true'));
+      handle.addEventListener('touchstart', () => card.setAttribute('draggable', 'true'), { passive: true });
+      const releaseDraggable = () => card.removeAttribute('draggable');
+      handle.addEventListener('mouseup', releaseDraggable);
+      handle.addEventListener('mouseleave', releaseDraggable);
+      handle.addEventListener('touchend', releaseDraggable);
+    } else {
+      card.setAttribute('draggable', 'true');
+    }
+
     card.addEventListener('dragstart', () => {
       draggedEl = card;
       setTimeout(() => card.classList.add('dragging'), 0);
     });
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
-      skillsGroups.querySelectorAll('.skill-card:not(.add-skill-card)').forEach(c => c.classList.remove('drag-over'));
+      getItems().forEach(c => c.classList.remove('drag-over'));
+      draggedEl = null;
+      if(handle) card.removeAttribute('draggable');
     });
     card.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -1396,17 +1885,41 @@ if(skillsGroups){
       e.preventDefault();
       card.classList.remove('drag-over');
       if(draggedEl && draggedEl !== card){
-        const cards = Array.from(skillsGroups.querySelectorAll('.skill-card:not(.add-skill-card)'));
-        const draggedIndex = cards.indexOf(draggedEl);
-        const targetIndex = cards.indexOf(card);
+        const items = getItems();
+        const draggedIndex = items.indexOf(draggedEl);
+        const targetIndex = items.indexOf(card);
         if(draggedIndex < targetIndex){
           card.after(draggedEl);
         } else {
           card.before(draggedEl);
         }
+        if(typeof saveContent === 'function') saveContent();
       }
     });
-  });
+  }
+
+  getItems().forEach(attach);
+
+  // Expose a way to bind newly-added (dynamically created) cards later.
+  return attach;
+}
+
+const skillsGroups = document.querySelector('.skills-groups');
+const bindSkillDrag = setupDragReorder(skillsGroups, '.skill-card', '.add-skill-card');
+
+const experienceContainer = document.getElementById('experienceContainer');
+const bindExperienceDrag = setupDragReorder(experienceContainer, '.exp-row');
+
+const certsTimeline = document.getElementById('certsTimeline');
+const bindCertDrag = setupDragReorder(certsTimeline, '.t-item');
+
+// Helper used when new cards are created dynamically, so they immediately
+// support drag-to-reorder without a page refresh.
+function makeCardDraggable(el, container, itemSelector){
+  el.setAttribute('draggable', 'true');
+  if(container === skillsGroups && bindSkillDrag) bindSkillDrag(el);
+  else if(container === experienceContainer && bindExperienceDrag) bindExperienceDrag(el);
+  else if(container === certsTimeline && bindCertDrag) bindCertDrag(el);
 }
  
 // ================= HERO PROFILE PHOTO (localStorage) =================
@@ -1440,7 +1953,7 @@ if(skillsGroups){
   }
 
   try{
-    const saved = localStorage.getItem(PHOTO_KEY);
+    const saved = dbStorage.getItem(PHOTO_KEY);
     renderPhoto(saved || DEFAULT_PHOTO);
   }catch(e){ console.warn('Could not load saved photo', e); renderPhoto(DEFAULT_PHOTO); }
 
@@ -1459,7 +1972,7 @@ if(skillsGroups){
     removeBtn.addEventListener('click', (e)=>{
       e.preventDefault();
       e.stopPropagation();
-      try{ localStorage.removeItem(PHOTO_KEY); }catch(err){}
+      try{ dbStorage.removeItem(PHOTO_KEY); }catch(err){}
       renderPhoto(null);
     });
   }
@@ -1470,7 +1983,7 @@ if(skillsGroups){
     const reader = new FileReader();
     reader.onload = (evt)=>{
       const dataUrl = evt.target.result;
-      try{ localStorage.setItem(PHOTO_KEY, dataUrl); }catch(err){ console.warn('Could not save photo', err); }
+      try{ dbStorage.setItem(PHOTO_KEY, dataUrl); }catch(err){ console.warn('Could not save photo', err); }
       renderPhoto(dataUrl);
     };
     reader.readAsDataURL(file);
@@ -1518,7 +2031,7 @@ if(skillsGroups){
   function saveContent(){
     try{
       window.__repairPortfolioControls(contentRoot);
-      localStorage.setItem(STORAGE_KEY, contentRoot.innerHTML);
+      dbStorage.setItem(STORAGE_KEY, contentRoot.innerHTML);
     }catch(e){ console.warn('Could not save portfolio data', e); }
   }
  
@@ -1736,17 +2249,21 @@ if(skillsGroups){
   if(addExperienceBtn){
     addExperienceBtn.addEventListener('click', ()=>{
       const container = document.getElementById('experienceContainer');
+      const certId = generateCertId();
       const row = document.createElement('div');
       row.className = 'exp-row reveal in';
       row.innerHTML = `
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="when">Month Year – Present</div>
         <div>
           <h4>New Role — Company / Organization</h4>
           <p>Describe your responsibilities and what you worked on.</p>
-          <a class="upload-link" href="#" title="Upload supporting certificate">🔗 Upload certificate</a>
+          <a class="upload-link" data-cert-id="${certId}" href="#" title="Upload supporting certificate">🔗 Upload certificate</a>
+          <button class="cert-file-del" data-remove-cert-file contenteditable="false" title="Remove uploaded file">✕</button>
           <button class="admin-del" contenteditable="false" data-remove-card>Delete this entry</button>
         </div>`;
       container.appendChild(row);
+      makeCardDraggable(row, container, '.exp-row');
       saveContent();
       selectTextInNode(row.querySelector('h4').firstChild);
     });
@@ -1774,6 +2291,7 @@ if(skillsGroups){
       const container = document.getElementById('skillsContainer');
       const card = createSkillGroupCard();
       container.insertBefore(card, addSkillBtn);
+      makeCardDraggable(card, skillsGroups, '.skill-card');
       saveContent();
       selectTextInNode(card.querySelector('h3').firstChild);
     });
@@ -1794,6 +2312,7 @@ if(skillsGroups){
       } else {
         container.appendChild(card);
       }
+      makeCardDraggable(card, skillsGroups, '.skill-card');
       saveContent();
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
       selectTextInNode(card.querySelector('h3').firstChild);
@@ -1806,11 +2325,11 @@ if(skillsGroups){
   const CERT_FILES_KEY = 'kc_portfolio_cert_files_v1';
 
   function loadCertFiles(){
-    try{ return JSON.parse(localStorage.getItem(CERT_FILES_KEY) || '{}'); }
+    try{ return JSON.parse(dbStorage.getItem(CERT_FILES_KEY) || '{}'); }
     catch(e){ return {}; }
   }
   function saveCertFiles(map){
-    try{ localStorage.setItem(CERT_FILES_KEY, JSON.stringify(map)); }
+    try{ dbStorage.setItem(CERT_FILES_KEY, JSON.stringify(map)); }
     catch(e){ console.warn('Could not save certificate files', e); }
   }
   function renderCertLink(link, files){
@@ -1872,11 +2391,11 @@ if(skillsGroups){
   let activeGalleryProjectId = null;
 
   function loadProjectImages(){
-    try{ return JSON.parse(localStorage.getItem(PROJECT_IMAGES_KEY) || '{}'); }
+    try{ return JSON.parse(dbStorage.getItem(PROJECT_IMAGES_KEY) || '{}'); }
     catch(e){ return {}; }
   }
   function saveProjectImages(map){
-    try{ localStorage.setItem(PROJECT_IMAGES_KEY, JSON.stringify(map)); }
+    try{ dbStorage.setItem(PROJECT_IMAGES_KEY, JSON.stringify(map)); }
     catch(e){ console.warn('Could not save project images (storage may be full)', e); alert('Could not save image — it may be too large or storage is full.'); }
   }
 
@@ -2011,6 +2530,7 @@ if(skillsGroups){
       const item = document.createElement('div');
       item.className = 't-item reveal in';
       item.innerHTML = `
+        <button type="button" class="drag-handle" contenteditable="false" title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
         <div class="date mono">MONTH YEAR</div>
         <h4>New Certification — Issuer</h4>
         <p>Describe what this certification covers.</p>
@@ -2018,6 +2538,7 @@ if(skillsGroups){
         <button class="cert-file-del" data-remove-cert-file contenteditable="false" title="Remove uploaded file">✕</button>
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this certification</button>`;
       container.appendChild(item);
+      makeCardDraggable(item, container, '.t-item');
       saveContent();
       selectTextInNode(item.querySelector('h4').firstChild);
     });
@@ -2141,10 +2662,13 @@ if(skillsGroups){
     if(sessionStorage.getItem(SESSION_KEY) === '1'){ enterAdminMode(); }
   }catch(e){}
 })();
+
+})(); // end of async wrapper awaiting window.__dbReady
 </script>
 <script>
 /* ================= RESUME SECTION (uses the same admin login as the rest of the site) ================= */
-(function(){
+(async function(){
+  await window.__dbReady;
   const RESUME_PDF_KEY = 'kc_resume_pdf_v1';
   const RESUME_PREVIEW_KEY = 'kc_resume_preview_v1';
   const RESUME_UPDATED_KEY = 'kc_resume_updated_v1';
@@ -2163,9 +2687,9 @@ if(skillsGroups){
 
   function renderResume(){
     let pdf, preview, updated;
-    try{ pdf = localStorage.getItem(RESUME_PDF_KEY) || DEFAULT_RESUME_PDF; }catch(e){ pdf = DEFAULT_RESUME_PDF; }
-    try{ preview = localStorage.getItem(RESUME_PREVIEW_KEY) || DEFAULT_RESUME_PREVIEW; }catch(e){ preview = DEFAULT_RESUME_PREVIEW; }
-    try{ updated = localStorage.getItem(RESUME_UPDATED_KEY); }catch(e){ updated = null; }
+    try{ pdf = dbStorage.getItem(RESUME_PDF_KEY) || DEFAULT_RESUME_PDF; }catch(e){ pdf = DEFAULT_RESUME_PDF; }
+    try{ preview = dbStorage.getItem(RESUME_PREVIEW_KEY) || DEFAULT_RESUME_PREVIEW; }catch(e){ preview = DEFAULT_RESUME_PREVIEW; }
+    try{ updated = dbStorage.getItem(RESUME_UPDATED_KEY); }catch(e){ updated = null; }
     if(previewImg) previewImg.src = preview;
     if(downloadBtn) downloadBtn.href = pdf;
     if(lastUpdatedText) lastUpdatedText.textContent = 'Last updated: ' + (updated || 'default resume');
@@ -2184,8 +2708,8 @@ if(skillsGroups){
       const reader = new FileReader();
       reader.onload = (evt)=>{
         try{
-          localStorage.setItem(RESUME_PDF_KEY, evt.target.result);
-          localStorage.setItem(RESUME_UPDATED_KEY, new Date().toLocaleDateString());
+          dbStorage.setItem(RESUME_PDF_KEY, evt.target.result);
+          dbStorage.setItem(RESUME_UPDATED_KEY, new Date().toLocaleDateString());
         }catch(err){ console.warn('Could not save resume PDF', err); }
         renderResume();
       };
@@ -2203,8 +2727,8 @@ if(skillsGroups){
       const reader = new FileReader();
       reader.onload = (evt)=>{
         try{
-          localStorage.setItem(RESUME_PREVIEW_KEY, evt.target.result);
-          localStorage.setItem(RESUME_UPDATED_KEY, new Date().toLocaleDateString());
+          dbStorage.setItem(RESUME_PREVIEW_KEY, evt.target.result);
+          dbStorage.setItem(RESUME_UPDATED_KEY, new Date().toLocaleDateString());
         }catch(err){ console.warn('Could not save resume preview', err); }
         renderResume();
       };
@@ -2216,13 +2740,120 @@ if(skillsGroups){
   if(resetBtn){
     resetBtn.addEventListener('click', ()=>{
       try{
-        localStorage.removeItem(RESUME_PDF_KEY);
-        localStorage.removeItem(RESUME_PREVIEW_KEY);
-        localStorage.removeItem(RESUME_UPDATED_KEY);
+        dbStorage.removeItem(RESUME_PDF_KEY);
+        dbStorage.removeItem(RESUME_PREVIEW_KEY);
+        dbStorage.removeItem(RESUME_UPDATED_KEY);
       }catch(e){}
       renderResume();
     });
   }
+})();
+</script>
+
+<!-- ---------- Gooey nav pill behavior ---------- -->
+<script>
+(function(){
+  const list = document.getElementById('navLinksList');
+  const pill = document.getElementById('navPill');
+  if(!list || !pill) return;
+  const links = Array.from(list.querySelectorAll('a'));
+  const sections = links
+    .filter(a => a.getAttribute('href').startsWith('#'))
+    .map(a => document.querySelector(a.getAttribute('href')))
+    .filter(Boolean);
+
+  let currentLink = null;
+  let hideTimer = null;
+
+  function movePillTo(link, opts){
+    opts = opts || {};
+    const listRect = list.getBoundingClientRect();
+    const linkRect = link.getBoundingClientRect();
+    const left = linkRect.left - listRect.left;
+    const width = linkRect.width;
+
+    // squash-stretch: briefly widen across the travel distance, then settle,
+    // giving the pill a gooey "flowing" feel like a liquid morph between tabs.
+    const prevLeft = parseFloat(pill.style.left) || left;
+    const prevWidth = parseFloat(pill.style.width) || width;
+    const traveling = pill.classList.contains('nav-pill-show') && Math.abs(left - prevLeft) > 2;
+
+    pill.classList.add('nav-pill-show');
+
+    if(traveling){
+      const spanLeft = Math.min(left, prevLeft);
+      const spanWidth = Math.max(left + width, prevLeft + prevWidth) - spanLeft;
+      pill.style.left = spanLeft + 'px';
+      pill.style.width = spanWidth + 'px';
+      window.setTimeout(()=>{
+        pill.style.left = left + 'px';
+        pill.style.width = width + 'px';
+      }, 160);
+    } else {
+      pill.style.left = left + 'px';
+      pill.style.width = width + 'px';
+    }
+
+    links.forEach(a => a.classList.toggle('active', a === link && !opts.preview));
+    currentLink = link;
+  }
+
+  function setActiveById(id){
+    const link = links.find(a => a.getAttribute('href') === '#' + id);
+    if(link) movePillTo(link);
+  }
+
+  // Hover preview: pill follows the cursor across items, gooey-morphing between them.
+  links.forEach(link => {
+    link.addEventListener('mouseenter', () => movePillTo(link, {preview: true}));
+  });
+  list.addEventListener('mouseleave', () => {
+    if(currentLink) movePillTo(currentLink);
+  });
+  links.forEach(link => {
+    link.addEventListener('click', () => movePillTo(link));
+  });
+
+  // Scroll-spy: keep the pill synced to whichever section is in view.
+  // (Plain scroll-position check rather than IntersectionObserver — with
+  // sections of very different heights, a percentage-based rootMargin band
+  // can sit entirely inside one tall section for the whole scroll range and
+  // never re-trigger for the others, so this checks directly on scroll.)
+  if(sections.length){
+    let ticking = false;
+    function updateActiveSection(){
+      ticking = false;
+      const refY = window.innerHeight * 0.35; // reference line near top of viewport
+      let current = sections[0];
+      for(const sec of sections){
+        if(sec.getBoundingClientRect().top <= refY){
+          current = sec;
+        } else {
+          break;
+        }
+      }
+      setActiveById(current.id);
+    }
+    function onScroll(){
+      if(!ticking){
+        ticking = true;
+        window.requestAnimationFrame(updateActiveSection);
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    window.addEventListener('load', updateActiveSection);
+    if(document.readyState === 'complete') updateActiveSection();
+  }
+
+  // Initialize once layout has settled.
+  function init(){
+    const first = links[0];
+    if(first) movePillTo(first);
+  }
+  window.addEventListener('load', init);
+  window.addEventListener('resize', () => { if(currentLink) movePillTo(currentLink); });
+  if(document.readyState === 'complete') init();
 })();
 </script>
 </body>
