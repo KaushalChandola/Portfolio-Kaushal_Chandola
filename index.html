@@ -1331,6 +1331,7 @@ body.admin-mode .tag-add{ display:inline-block; }
       <button class="admin-add" contenteditable="false" id="editLinkedinBtn" style="width:auto;margin:0;padding:4px 10px;font-size:0.68rem;">✏️ Edit</button>
     </span>
   </footer>
+ 
 </div>
  
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1339,8 +1340,8 @@ body.admin-mode .tag-add{ display:inline-block; }
 // Replace these two values with your own Supabase project's URL and anon key
 // (Project Settings -> API in your Supabase dashboard). These are safe to
 // expose publicly — access is controlled by Row Level Security policies.
-const SUPABASE_URL = 'https://yznfuvusahoexyxrsnjr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bmZ1dnVzYWhvZXh5eHJzbmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1ODg4NTcsImV4cCI6MjA5OTE2NDg1N30.YDUpEKmmvQ3JzLbgg2l0UgQTblaeV1BHd1iniozvleo';
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const sbClient = (SUPABASE_URL.startsWith('http'))
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -2785,10 +2786,15 @@ function makeCardDraggable(el, container, itemSelector){
       const spanWidth = Math.max(left + width, prevLeft + prevWidth) - spanLeft;
       pill.style.left = spanLeft + 'px';
       pill.style.width = spanWidth + 'px';
-      window.setTimeout(()=>{
+      // Settle roughly a third into the 550ms CSS transition so the stretch
+      // and snap-back legs both get to play out. Clear any pending settle
+      // from a previous call so rapid scroll-spy updates don't stack timers
+      // and yank the pill mid-flight.
+      window.clearTimeout(pill._settleTimer);
+      pill._settleTimer = window.setTimeout(()=>{
         pill.style.left = left + 'px';
         pill.style.width = width + 'px';
-      }, 160);
+      }, 550 / 3);
     } else {
       pill.style.left = left + 'px';
       pill.style.width = width + 'px';
@@ -2821,6 +2827,7 @@ function makeCardDraggable(el, container, itemSelector){
   // never re-trigger for the others, so this checks directly on scroll.)
   if(sections.length){
     let ticking = false;
+    let lastActiveId = null;
     function updateActiveSection(){
       ticking = false;
       const refY = window.innerHeight * 0.35; // reference line near top of viewport
@@ -2832,7 +2839,13 @@ function makeCardDraggable(el, container, itemSelector){
           break;
         }
       }
-      setActiveById(current.id);
+      // Only touch the pill when the active section actually changed —
+      // calling setActiveById on every scroll frame re-triggers the
+      // squash-stretch animation mid-flight and makes it stutter.
+      if(current.id !== lastActiveId){
+        lastActiveId = current.id;
+        setActiveById(current.id);
+      }
     }
     function onScroll(){
       if(!ticking){
