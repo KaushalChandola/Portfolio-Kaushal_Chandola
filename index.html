@@ -1472,10 +1472,25 @@ window.__repairPortfolioControls = function(contentRoot){
     if(saved){ contentRoot.innerHTML = saved; }
   }catch(e){ console.warn('Could not load saved portfolio data', e); }
  
+  // The saved snapshot can contain "already initialized" markers (like
+  // data-drag-reorder-bound) baked in from the DOM state at save time.
+  // Since these are brand-new elements with no real JS listeners attached
+  // yet, those stale markers must be cleared or every init routine that
+  // checks them (drag-reorder, etc.) will think it has nothing to do.
+  contentRoot.querySelectorAll('[data-drag-reorder-bound]').forEach(el=>{
+    el.removeAttribute('data-drag-reorder-bound');
+  });
+
   const changed = window.__repairPortfolioControls(contentRoot);
   if(changed){
     try{ dbStorage.setItem(STORAGE_KEY, contentRoot.innerHTML); }catch(e){}
   }
+
+  // Content that other scripts depend on (drag-reorder targets, scroll-spy
+  // section refs, etc.) has now been swapped to freshly-parsed nodes —
+  // signal that so anything which cached references before this point can
+  // re-query the live DOM instead of holding onto detached elements.
+  document.dispatchEvent(new CustomEvent('portfolio-content-restored'));
 })();
  
 // ================= INTRO / SPLASH SCREEN =================
@@ -2758,10 +2773,18 @@ function makeCardDraggable(el, container, itemSelector){
   const pill = document.getElementById('navPill');
   if(!list || !pill) return;
   const links = Array.from(list.querySelectorAll('a'));
-  const sections = links
-    .filter(a => a.getAttribute('href').startsWith('#'))
-    .map(a => document.querySelector(a.getAttribute('href')))
-    .filter(Boolean);
+  // Section elements can be swapped out from under us: the admin content
+  // restore (Supabase-backed) replaces #contentRoot's innerHTML — often
+  // *after* this script has already run — which detaches whatever nodes
+  // we captured here. Re-resolving on demand instead of caching once
+  // avoids holding onto stale, detached elements.
+  function resolveSections(){
+    return links
+      .filter(a => a.getAttribute('href').startsWith('#'))
+      .map(a => document.querySelector(a.getAttribute('href')))
+      .filter(Boolean);
+  }
+  let sections = resolveSections();
 
   let currentLink = null;
   let hideTimer = null;
@@ -2857,6 +2880,16 @@ function makeCardDraggable(el, container, itemSelector){
     window.addEventListener('resize', onScroll);
     window.addEventListener('load', updateActiveSection);
     if(document.readyState === 'complete') updateActiveSection();
+
+    // The Supabase-backed content restore can replace #contentRoot's
+    // innerHTML after we've already captured section nodes above — refresh
+    // our references when that happens so scroll-spy doesn't keep measuring
+    // detached elements for Experience/Certifications.
+    document.addEventListener('portfolio-content-restored', () => {
+      sections = resolveSections();
+      lastActiveId = null;
+      updateActiveSection();
+    });
   }
 
   // Initialize once layout has settled.
