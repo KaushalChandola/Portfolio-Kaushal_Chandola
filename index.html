@@ -1340,8 +1340,8 @@ body.admin-mode .tag-add{ display:inline-block; }
 // Replace these two values with your own Supabase project's URL and anon key
 // (Project Settings -> API in your Supabase dashboard). These are safe to
 // expose publicly — access is controlled by Row Level Security policies.
-const SUPABASE_URL = 'https://yznfuvusahoexyxrsnjr.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bmZ1dnVzYWhvZXh5eHJzbmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1ODg4NTcsImV4cCI6MjA5OTE2NDg1N30.YDUpEKmmvQ3JzLbgg2l0UgQTblaeV1BHd1iniozvleo';
+const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 const sbClient = (SUPABASE_URL.startsWith('http'))
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -1390,6 +1390,45 @@ const dbStorage = {
 // dbStorage, so the cache is guaranteed to be loaded first no matter which
 // script block runs first.
 window.__dbReady = dbStorage.init();
+
+// ================= INTRO / SPLASH SCREEN =================
+// Runs immediately (not gated on window.__dbReady) since it has no
+// dependency on Supabase data — it should play on its own timeline
+// regardless of how long the DB fetch takes.
+(function(){
+  const introScreen = document.getElementById('introScreen');
+  const introText = document.getElementById('introText');
+  if(!introScreen || !introText) return;
+
+  const WORD = 'PORTFOLIO';
+  const LETTER_DELAY = 0.05; // seconds between each letter's entrance
+  const LETTER_DURATION = 0.55; // matches the introLetterIn CSS animation duration
+  const HOLD_AFTER_BAR = 500; // ms to hold once fully revealed before hiding
+
+  // Prevent scrolling/interaction with the page while the intro plays.
+  document.documentElement.style.overflow = 'hidden';
+
+  WORD.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    span.style.animationDelay = (i * LETTER_DELAY) + 's';
+    introText.appendChild(span);
+  });
+
+  const totalLetterTime = (WORD.length - 1) * LETTER_DELAY + LETTER_DURATION; // seconds
+  const barDelay = 1050; // ms, matches .intro-text::after animation-delay in CSS
+  const barDuration = 500; // ms, matches introBarIn duration
+
+  const hideAfter = Math.max(totalLetterTime * 1000, barDelay + barDuration) + HOLD_AFTER_BAR;
+
+  setTimeout(() => {
+    introScreen.classList.add('intro-hide');
+    document.documentElement.style.overflow = '';
+    setTimeout(() => { introScreen.remove(); }, 850); // matches CSS transition duration
+  }, hideAfter);
+})();
+// ================= END INTRO / SPLASH SCREEN =================
+
 </script>
 
 <script>
@@ -1493,41 +1532,6 @@ window.__repairPortfolioControls = function(contentRoot){
   document.dispatchEvent(new CustomEvent('portfolio-content-restored'));
 })();
  
-// ================= INTRO / SPLASH SCREEN =================
-(function(){
-  const introScreen = document.getElementById('introScreen');
-  const introText = document.getElementById('introText');
-  if(!introScreen || !introText) return;
-
-  const WORD = 'PORTFOLIO';
-  const LETTER_DELAY = 0.05; // seconds between each letter's entrance
-  const LETTER_DURATION = 0.55; // matches the introLetterIn CSS animation duration
-  const HOLD_AFTER_BAR = 500; // ms to hold once fully revealed before hiding
-
-  // Prevent scrolling/interaction with the page while the intro plays.
-  document.documentElement.style.overflow = 'hidden';
-
-  WORD.split('').forEach((ch, i) => {
-    const span = document.createElement('span');
-    span.textContent = ch;
-    span.style.animationDelay = (i * LETTER_DELAY) + 's';
-    introText.appendChild(span);
-  });
-
-  const totalLetterTime = (WORD.length - 1) * LETTER_DELAY + LETTER_DURATION; // seconds
-  const barDelay = 1050; // ms, matches .intro-text::after animation-delay in CSS
-  const barDuration = 500; // ms, matches introBarIn duration
-
-  const hideAfter = Math.max(totalLetterTime * 1000, barDelay + barDuration) + HOLD_AFTER_BAR;
-
-  setTimeout(() => {
-    introScreen.classList.add('intro-hide');
-    document.documentElement.style.overflow = '';
-    setTimeout(() => { introScreen.remove(); }, 850); // matches CSS transition duration
-  }, hideAfter);
-})();
-// ================= END INTRO / SPLASH SCREEN =================
-
 // Ambient drifting particles
 const field = document.querySelector('.field');
 for(let i=0;i<24;i++){
@@ -2196,8 +2200,30 @@ function makeCardDraggable(el, container, itemSelector){
         e.preventDefault();
         activeCertLink = certLink;
         certFileInput.click();
+        return;
       }
-      // if hasFile, let the default link navigation open the certificate
+      // Browsers block/flag top-level navigation straight to a data: URI
+      // (shows blank + "Not secure"), especially for large base64 payloads
+      // like PDFs. Converting to a blob: URL first gives the browser a
+      // normal same-origin-ish resource it can open in its PDF viewer.
+      e.preventDefault();
+      try{
+        const dataUrl = files[certLink.dataset.certId];
+        const [meta, base64] = dataUrl.split(',');
+        const mimeMatch = meta.match(/data:(.*?);base64/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for(let i = 0; i < binary.length; i++){ bytes[i] = binary.charCodeAt(i); }
+        const blob = new Blob([bytes], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        // Revoke well after the new tab has had time to load the resource.
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }catch(err){
+        console.warn('Could not open certificate as blob, falling back to data URL', err);
+        window.open(files[certLink.dataset.certId], '_blank');
+      }
       return;
     }
 
