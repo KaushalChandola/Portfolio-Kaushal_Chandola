@@ -1446,6 +1446,29 @@ await window.__dbReady;
 window.__repairPortfolioControls = function(contentRoot){
   let changed = false;
  
+  // A section heading can get its DOM snapshotted mid-typing-animation
+  // (e.g. if an admin edit elsewhere triggers a save while a heading is
+  // still being typed out). That bakes a truncated string + leftover
+  // blinking-cursor span permanently into storage — the heading then
+  // looks eternally stuck like "Certificati" instead of "Certifications".
+  // Repair it: cancel any in-flight typing pass, drop the cursor element,
+  // and restore the heading's known-complete text.
+  contentRoot.querySelectorAll('.head h2.typing-heading').forEach(h2=>{
+    const cursor = h2.querySelector('.type-cursor');
+    const wasTyping = h2.classList.contains('is-typing') || !!cursor;
+    if(wasTyping){
+      h2._typeToken = Symbol(); // invalidates any pending setTimeout step
+      const fullText = h2.dataset.fullText;
+      if(fullText){
+        h2.textContent = fullText;
+      } else if(cursor){
+        cursor.remove();
+      }
+      h2.classList.remove('is-typing');
+      changed = true;
+    }
+  });
+ 
   contentRoot.querySelectorAll('.proj-card.slot, .exp-row.slot, .skill-card.slot').forEach(el=>{
     el.remove();
     changed = true;
