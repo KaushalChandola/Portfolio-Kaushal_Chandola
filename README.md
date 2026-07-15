@@ -1,7 +1,7 @@
 # Kaushal Chandola — Portfolio Website
 
 This project is a single-page personal portfolio (portfolio.html) with a separate resume page (resume.html). It supports two visual themes (dark & light) and an in-browser __Admin Mode__ that lets you edit content directly on the live site without touching the code.
-🔗 Check out my [Live Portfolio](https://portfolio-kaushalchandola-zdy5.vercel.app/)
+🔗 Check out my [Live Portfolio](https://portfoliokaushalchandola.vercel.app/)
 
 ## 1. Dark Theme (Default Mode)
 
