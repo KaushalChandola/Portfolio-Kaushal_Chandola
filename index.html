@@ -276,11 +276,11 @@ body.light .cursor-line{ mix-blend-mode: multiply; }
 
 /* ---------- Section float-in animation (replays every time a section scrolls into view) ---------- */
 @keyframes sectionFloatIn{
-  0%{ opacity:0; transform: translateY(28px); }
+  0%{ opacity:0; transform: translateY(90px); }
   100%{ opacity:1; transform: translateY(0); }
 }
 .section-float-in{
-  animation: sectionFloatIn .9s cubic-bezier(.2,.8,.2,1);
+  animation: sectionFloatIn 2.2s cubic-bezier(.22,.85,.3,1);
 }
 @media (prefers-reduced-motion: reduce){
   .section-float-in{ animation: none !important; }
@@ -500,17 +500,8 @@ h1.name .accent{ color: var(--accent); }
   margin-top: 16px;
   background: var(--accent);
 }
-/* ---------- Section heading reveal ---------- */
-.head h2.typing-heading{
-  min-height: 1em;
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1);
-}
-.head h2.typing-heading.heading-visible{
-  opacity: 1;
-  transform: translateY(0);
-}
+/* ---------- Section heading typing animation ---------- */
+.head h2.typing-heading{ min-height: 1em; }
 .head h2.typing-heading .type-cursor{
   display:inline-block;
   width: 3px;
@@ -1839,11 +1830,11 @@ if(editRolesBtn){
     entries.forEach(entry => {
       const el = entry.target;
       if(entry.isIntersecting){
-        // Restart the animation cleanly each time by toggling the class
-        // via a single rAF instead of a synchronous reflow read, so it
-        // stays smooth even on fast scroll.
+        // Remove and force a reflow so the animation restarts even if the
+        // class was never removed (re-entering the same section quickly).
         el.classList.remove('section-float-in');
-        requestAnimationFrame(() => el.classList.add('section-float-in'));
+        void el.offsetWidth;
+        el.classList.add('section-float-in');
       }
     });
   }, { threshold: 0.2 });
@@ -1866,7 +1857,7 @@ if(editRolesBtn){
   });
 
   function typeText(el, text, speed){
-    speed = speed || 60;
+    speed = speed || 150;
     const token = Symbol();
     el._typeToken = token;
     el.classList.add('is-typing');
@@ -1894,17 +1885,10 @@ if(editRolesBtn){
     entries.forEach(entry => {
       const el = entry.target;
       if(entry.isIntersecting){
-        el.classList.add('heading-visible');
         typeText(el, el.dataset.fullText);
-      } else {
-        // Reset so the fade + typewriter both replay cleanly next time
-        // this heading scrolls back into view, instead of a re-type
-        // fighting with leftover state from the previous pass.
-        el.classList.remove('heading-visible');
-        el._typeToken = Symbol();
       }
     });
-  }, { threshold: 0, rootMargin: '0px 0px -25% 0px' });
+  }, { threshold: 0.4 });
 
   headings.forEach(h2 => headingObserver.observe(h2));
 })();
