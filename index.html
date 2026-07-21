@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kaushal Chandola — Portfolio</title>
+<script>
+  // Apply saved theme immediately (before first paint) so the splash screen
+  // shows the correct background instead of flashing dark then switching.
+  (function(){
+    try{
+      var saved = localStorage.getItem('kc-theme');
+      if(saved === 'light'){ document.documentElement.classList.add('light-init'); }
+    }catch(e){}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -18,6 +28,9 @@
   background: var(--bg);
   transition: opacity .8s ease, transform .8s cubic-bezier(.4,0,.2,1);
 }
+html.light-init .intro-screen{
+  background: #ffffff;
+}
 .intro-screen.intro-hide{
   opacity: 0;
   transform: translateY(-40px);
@@ -31,6 +44,9 @@
   letter-spacing: 0.3em;
   color: var(--text);
   position: relative;
+}
+html.light-init .intro-text{
+  color: #0b0e1c;
 }
 .intro-text::after{
   content: '';
@@ -260,11 +276,11 @@ body.light .cursor-line{ mix-blend-mode: multiply; }
 
 /* ---------- Section float-in animation (replays every time a section scrolls into view) ---------- */
 @keyframes sectionFloatIn{
-  0%{ opacity:0; transform: translateY(90px); }
+  0%{ opacity:0; transform: translateY(28px); }
   100%{ opacity:1; transform: translateY(0); }
 }
 .section-float-in{
-  animation: sectionFloatIn 2.2s cubic-bezier(.22,.85,.3,1);
+  animation: sectionFloatIn .9s cubic-bezier(.2,.8,.2,1);
 }
 @media (prefers-reduced-motion: reduce){
   .section-float-in{ animation: none !important; }
@@ -484,8 +500,17 @@ h1.name .accent{ color: var(--accent); }
   margin-top: 16px;
   background: var(--accent);
 }
-/* ---------- Section heading typing animation ---------- */
-.head h2.typing-heading{ min-height: 1em; }
+/* ---------- Section heading reveal ---------- */
+.head h2.typing-heading{
+  min-height: 1em;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1);
+}
+.head h2.typing-heading.heading-visible{
+  opacity: 1;
+  transform: translateY(0);
+}
 .head h2.typing-heading .type-cursor{
   display:inline-block;
   width: 3px;
@@ -1390,11 +1415,36 @@ const dbStorage = {
 // dbStorage, so the cache is guaranteed to be loaded first no matter which
 // script block runs first.
 window.__dbReady = dbStorage.init();
+</script>
+
+<script>
+// ================= RUNS IMMEDIATELY (does not wait on Supabase) =================
+// Intro splash screen, ambient drifting particles, and mousemove parallax
+// don't depend on any saved database content, so they must NOT be gated
+// behind "await window.__dbReady" — otherwise they'd stall for however long
+// the Supabase network round-trip takes (which varies), making animations
+// feel broken/inconsistent. They run here, synchronously, on page load.
+
+// ================= THEME (light/dark) =================
+// Applied here, synchronously and immediately, because it must NOT wait on
+// window.__dbReady (a Supabase network round-trip). Theme only ever reads/
+// writes localStorage, so gating it behind the network caused a race: the
+// splash screen hides on a fixed local timer, but if Supabase hadn't
+// responded yet, the page was still sitting in default dark mode — causing
+// a flash of dark right after the splash even when the saved preference
+// was light.
+window.__setMode = function(mode){
+  if(mode === 'light'){ document.body.classList.add('light'); }
+  else{ document.body.classList.remove('light'); }
+  try{ localStorage.setItem('kc-theme', mode); }catch(e){}
+};
+(function(){
+  let saved = 'dark';
+  try{ saved = localStorage.getItem('kc-theme') || 'dark'; }catch(e){}
+  window.__setMode(saved);
+})();
 
 // ================= INTRO / SPLASH SCREEN =================
-// Runs immediately (not gated on window.__dbReady) since it has no
-// dependency on Supabase data — it should play on its own timeline
-// regardless of how long the DB fetch takes.
 (function(){
   const introScreen = document.getElementById('introScreen');
   const introText = document.getElementById('introText');
@@ -1429,6 +1479,30 @@ window.__dbReady = dbStorage.init();
 })();
 // ================= END INTRO / SPLASH SCREEN =================
 
+// Ambient drifting particles
+const field = document.querySelector('.field');
+for(let i=0;i<24;i++){
+  const d = document.createElement('div');
+  d.className = 'drift';
+  d.style.left = Math.random()*100 + 'vw';
+  d.style.bottom = -20 + 'px';
+  const dur = 14 + Math.random()*16;
+  d.style.animationDuration = dur + 's';
+  d.style.animationDelay = '-' + (Math.random()*dur) + 's';
+  field.appendChild(d);
+}
+
+// Mouse-move parallax on orbit field
+const orbits = document.querySelectorAll('.orbit');
+window.addEventListener('mousemove', (e)=>{
+  const x = (e.clientX / window.innerWidth) - 0.5;
+  const y = (e.clientY / window.innerHeight) - 0.5;
+  orbits.forEach((o, i)=>{
+    const depth = (i+1) * 10;
+    o.style.transform = `translate(calc(-50% + ${x*depth}px), calc(-30% + ${y*depth}px))`;
+  });
+});
+// ================= END RUNS IMMEDIATELY =================
 </script>
 
 <script>
@@ -1445,55 +1519,6 @@ await window.__dbReady;
 // Safe to call repeatedly — it only touches things that are actually broken.
 window.__repairPortfolioControls = function(contentRoot){
   let changed = false;
- 
-  // Known-correct text for the standard section headings. Used as ground
-  // truth to repair a heading that got its typing animation snapshotted
-  // mid-progress (see below) — there's no other reliable source for the
-  // "real" text at the point content gets restored from storage, since
-  // the typing-animation script's own dataset.fullText hasn't been set
-  // yet this early in the load sequence.
-  const DEFAULT_SECTION_HEADINGS = {
-    about: 'About',
-    skills: 'Skills & Tools',
-    projects: 'Projects',
-    experience: 'Experience',
-    certs: 'Certifications',
-    achievements: 'Achievements'
-  };
-
-  // A section heading can get its DOM snapshotted mid-typing-animation
-  // (e.g. if an admin edit elsewhere triggers a save while a heading is
-  // still being typed out). That bakes a truncated string + leftover
-  // blinking-cursor span permanently into storage — the heading then
-  // looks eternally stuck like "Certificati" instead of "Certifications".
-  // Repair it: cancel any in-flight typing pass, drop the cursor element,
-  // and restore the heading's known-complete text.
-  contentRoot.querySelectorAll('.head h2').forEach(h2=>{
-    const cursor = h2.querySelector('.type-cursor');
-    const looksTruncated = h2.classList.contains('is-typing') || !!cursor;
-    const section = h2.closest('section[id]');
-    const knownGood = section ? DEFAULT_SECTION_HEADINGS[section.id] : null;
-    if(looksTruncated){
-      h2._typeToken = Symbol(); // invalidates any pending setTimeout step
-      const fullText = h2.dataset.fullText || knownGood;
-      if(fullText){
-        h2.textContent = fullText;
-      } else if(cursor){
-        cursor.remove();
-      }
-      h2.classList.remove('is-typing');
-      changed = true;
-    } else if(knownGood && h2.textContent.trim() !== knownGood && !h2.dataset.userEdited){
-      // Not currently mid-typing, but the resting text doesn't match the
-      // known-correct heading — this is exactly the state a previously
-      // corrupted save leaves behind (e.g. permanently "Certificati").
-      // Repair it once; if an admin has deliberately renamed a heading,
-      // data-user-edited (set on manual edit, see admin edit handler)
-      // prevents this from clobbering that intentional change.
-      h2.textContent = knownGood;
-      changed = true;
-    }
-  });
  
   contentRoot.querySelectorAll('.proj-card.slot, .exp-row.slot, .skill-card.slot').forEach(el=>{
     el.remove();
@@ -1581,38 +1606,22 @@ window.__repairPortfolioControls = function(contentRoot){
   document.dispatchEvent(new CustomEvent('portfolio-content-restored'));
 })();
  
-// Ambient drifting particles
-const field = document.querySelector('.field');
-for(let i=0;i<24;i++){
-  const d = document.createElement('div');
-  d.className = 'drift';
-  d.style.left = Math.random()*100 + 'vw';
-  d.style.bottom = -20 + 'px';
-  const dur = 14 + Math.random()*16;
-  d.style.animationDuration = dur + 's';
-  d.style.animationDelay = '-' + (Math.random()*dur) + 's';
-  field.appendChild(d);
-}
- 
-// Scroll reveal
+// Intro screen, ambient particles, and mousemove parallax now run immediately
+// in the script block above (right after page load) instead of here, so they
+// are no longer delayed by the Supabase network fetch.
+
+// Scroll reveal — this one MUST stay here (after content restore above),
+// since contentRoot's innerHTML gets replaced with saved DB content, and we
+// need to observe the final, real elements, not the placeholder markup.
 const io = new IntersectionObserver((entries)=>{
   entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
 }, { threshold: 0.15 });
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
  
-// Mouse-move parallax on orbit field
-const orbits = document.querySelectorAll('.orbit');
-window.addEventListener('mousemove', (e)=>{
-  const x = (e.clientX / window.innerWidth) - 0.5;
-  const y = (e.clientY / window.innerHeight) - 0.5;
-  orbits.forEach((o, i)=>{
-    const depth = (i+1) * 10;
-    o.style.transform = `translate(calc(-50% + ${x*depth}px), calc(-30% + ${y*depth}px))`;
-  });
-});
- 
 // Subtle tilt on cards following the cursor
-document.querySelectorAll('.proj-card:not(.slot), .skill-card:not(.add-skill-card), .ach-card, .panel').forEach(card=>{
+function bindTilt(card){
+  if(card.dataset.tiltBound) return;
+  card.dataset.tiltBound = '1';
   card.addEventListener('mousemove', (e)=>{
     const rect = card.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width - 0.5;
@@ -1620,7 +1629,8 @@ document.querySelectorAll('.proj-card:not(.slot), .skill-card:not(.add-skill-car
     card.style.transform = `perspective(700px) rotateX(${py * -6}deg) rotateY(${px * 6}deg) translateY(-6px) scale(1.03)`;
   });
   card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
-});
+}
+document.querySelectorAll('.proj-card:not(.slot), .skill-card:not(.add-skill-card), .exp-row, .ach-card, .panel').forEach(bindTilt);
  
 // Scroll progress bar + nav shrink + hero parallax fade
 const scrollProgress = document.getElementById('scrollProgress');
@@ -1639,19 +1649,9 @@ function onScroll(){
 window.addEventListener('scroll', onScroll, { passive: true });
 onScroll();
 const themeSwitch = document.getElementById('themeSwitch');
-const body = document.body;
- 
-function setMode(mode){
-  if(mode === 'light'){ body.classList.add('light'); }
-  else{ body.classList.remove('light'); }
-  try{ localStorage.setItem('kc-theme', mode); }catch(e){}
-}
 themeSwitch.addEventListener('click', ()=>{
-  setMode(body.classList.contains('light') ? 'dark' : 'light');
+  window.__setMode(document.body.classList.contains('light') ? 'dark' : 'light');
 });
-let saved = 'dark';
-try{ saved = localStorage.getItem('kc-theme') || 'dark'; }catch(e){}
-setMode(saved);
  
 // Dynamic role text: types out roles on loop (editable in admin mode)
 const ROLES_KEY = 'kc_portfolio_roles_v1';
@@ -1839,11 +1839,11 @@ if(editRolesBtn){
     entries.forEach(entry => {
       const el = entry.target;
       if(entry.isIntersecting){
-        // Remove and force a reflow so the animation restarts even if the
-        // class was never removed (re-entering the same section quickly).
+        // Restart the animation cleanly each time by toggling the class
+        // via a single rAF instead of a synchronous reflow read, so it
+        // stays smooth even on fast scroll.
         el.classList.remove('section-float-in');
-        void el.offsetWidth;
-        el.classList.add('section-float-in');
+        requestAnimationFrame(() => el.classList.add('section-float-in'));
       }
     });
   }, { threshold: 0.2 });
@@ -1866,7 +1866,7 @@ if(editRolesBtn){
   });
 
   function typeText(el, text, speed){
-    speed = speed || 150;
+    speed = speed || 60;
     const token = Symbol();
     el._typeToken = token;
     el.classList.add('is-typing');
@@ -1894,10 +1894,17 @@ if(editRolesBtn){
     entries.forEach(entry => {
       const el = entry.target;
       if(entry.isIntersecting){
+        el.classList.add('heading-visible');
         typeText(el, el.dataset.fullText);
+      } else {
+        // Reset so the fade + typewriter both replay cleanly next time
+        // this heading scrolls back into view, instead of a re-type
+        // fighting with leftover state from the previous pass.
+        el.classList.remove('heading-visible');
+        el._typeToken = Symbol();
       }
     });
-  }, { threshold: 0.4 });
+  }, { threshold: 0, rootMargin: '0px 0px -25% 0px' });
 
   headings.forEach(h2 => headingObserver.observe(h2));
 })();
@@ -2134,10 +2141,8 @@ function makeCardDraggable(el, container, itemSelector){
   // Auto-save whenever admin finishes typing / editing (debounced).
   // Also self-heals any corrupted controls every time it saves.
   let saveTimer = null;
-  contentRoot.addEventListener('input', (e)=>{
+  contentRoot.addEventListener('input', ()=>{
     if(!document.body.classList.contains('admin-mode')) return;
-    const heading = e.target.closest && e.target.closest('.head h2');
-    if(heading){ heading.dataset.userEdited = 'true'; }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveContent, 600);
   });
@@ -2251,30 +2256,8 @@ function makeCardDraggable(el, container, itemSelector){
         e.preventDefault();
         activeCertLink = certLink;
         certFileInput.click();
-        return;
       }
-      // Browsers block/flag top-level navigation straight to a data: URI
-      // (shows blank + "Not secure"), especially for large base64 payloads
-      // like PDFs. Converting to a blob: URL first gives the browser a
-      // normal same-origin-ish resource it can open in its PDF viewer.
-      e.preventDefault();
-      try{
-        const dataUrl = files[certLink.dataset.certId];
-        const [meta, base64] = dataUrl.split(',');
-        const mimeMatch = meta.match(/data:(.*?);base64/);
-        const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for(let i = 0; i < binary.length; i++){ bytes[i] = binary.charCodeAt(i); }
-        const blob = new Blob([bytes], { type: mime });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        // Revoke well after the new tab has had time to load the resource.
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-      }catch(err){
-        console.warn('Could not open certificate as blob, falling back to data URL', err);
-        window.open(files[certLink.dataset.certId], '_blank');
-      }
+      // if hasFile, let the default link navigation open the certificate
       return;
     }
 
@@ -2331,6 +2314,7 @@ function makeCardDraggable(el, container, itemSelector){
         </div>
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this project</button>`;
       container.appendChild(card);
+      bindTilt(card);
       saveContent();
       initProjectGalleryButtons();
       selectTextInNode(card.querySelector('h3').firstChild);
@@ -2357,6 +2341,7 @@ function makeCardDraggable(el, container, itemSelector){
         </div>`;
       container.appendChild(row);
       makeCardDraggable(row, container, '.exp-row');
+      bindTilt(row);
       saveContent();
       selectTextInNode(row.querySelector('h4').firstChild);
     });
@@ -2385,6 +2370,7 @@ function makeCardDraggable(el, container, itemSelector){
       const card = createSkillGroupCard();
       container.insertBefore(card, addSkillBtn);
       makeCardDraggable(card, skillsGroups, '.skill-card');
+      bindTilt(card);
       saveContent();
       selectTextInNode(card.querySelector('h3').firstChild);
     });
@@ -2406,6 +2392,7 @@ function makeCardDraggable(el, container, itemSelector){
         container.appendChild(card);
       }
       makeCardDraggable(card, skillsGroups, '.skill-card');
+      bindTilt(card);
       saveContent();
       card.scrollIntoView({ behavior: 'smooth', block: 'center' });
       selectTextInNode(card.querySelector('h3').firstChild);
@@ -2454,15 +2441,44 @@ function makeCardDraggable(el, container, itemSelector){
 
   if(certFileInput){
     certFileInput.addEventListener('click', e=> e.stopPropagation());
-    certFileInput.addEventListener('change', (e)=>{
+    certFileInput.addEventListener('change', async (e)=>{
       const file = e.target.files[0];
       if(!file || !activeCertLink) return;
+      const certId = activeCertLink.dataset.certId;
+      const link = activeCertLink; // capture before it's cleared
+
+      if(sbClient){
+        // Upload the real file to Supabase Storage instead of embedding it
+        // as base64 text — much faster and avoids huge data: URLs.
+        const path = `${certId}-${Date.now()}-${file.name}`;
+        const { error: uploadError } = await sbClient.storage
+          .from('certificates')
+          .upload(path, file, { upsert: true });
+        if(uploadError){
+          console.warn('Certificate upload failed', uploadError);
+          alert('Could not upload certificate: ' + uploadError.message);
+          activeCertLink = null;
+          certFileInput.value = '';
+          return;
+        }
+        const { data } = sbClient.storage.from('certificates').getPublicUrl(path);
+        const files = loadCertFiles();
+        files[certId] = data.publicUrl;
+        saveCertFiles(files);
+        renderCertLink(link, files);
+        saveContent();
+        activeCertLink = null;
+        certFileInput.value = '';
+        return;
+      }
+
+      // Fallback (no Supabase configured): old base64 behavior.
       const reader = new FileReader();
       reader.onload = (evt)=>{
         const files = loadCertFiles();
-        files[activeCertLink.dataset.certId] = evt.target.result;
+        files[certId] = evt.target.result;
         saveCertFiles(files);
-        renderCertLink(activeCertLink, files);
+        renderCertLink(link, files);
         saveContent();
         activeCertLink = null;
       };
@@ -2650,6 +2666,7 @@ function makeCardDraggable(el, container, itemSelector){
         <a href="#" target="_blank">View more →</a>
         <button class="admin-del" contenteditable="false" data-remove-card>Delete this achievement</button>`;
       container.appendChild(card);
+      bindTilt(card);
       saveContent();
       selectTextInNode(card.querySelector('.n').firstChild);
     });
